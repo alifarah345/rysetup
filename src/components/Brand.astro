@@ -1,0 +1,7 @@
+---
+const { locale } = Astro.props
+---
+<span class="brand">
+  <img src="/images/ry-monogram.svg" width="44" height="30" alt="" />
+  <span class="brand-name">{locale === 'ar' ? 'ركن اليقين' : 'RUKN AL YAQEEN'}<small>{locale === 'ar' ? 'لتأسيس الأعمال' : 'BUSINESS SETUP'}</small></span>
+</span>

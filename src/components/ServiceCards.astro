@@ -1,0 +1,17 @@
+---
+import {features, pick, url, type Locale} from '../lib/content'
+import type {EditorialPage} from '../lib/cms'
+import Icon from './Icon.astro'
+const {locale, editorialPages} = Astro.props as {locale: Locale; editorialPages: EditorialPage[]}
+---
+<div class="service-grid">
+  {features.map(item => {
+    const page = editorialPages.find(entry => entry.slug === item.slug && entry.serviceApproved)
+    return <a class="service-card" href={url(locale,item.slug)}>
+    <span class="service-icon"><Icon name={item.icon} size={26} /></span>
+    <h3>{page?.title || pick(locale,item.title)}</h3>
+    <p>{page?.intro || pick(locale,item.text)}</p>
+    <span class="card-link">{pick(locale,['Explore service','استكشف الخدمة'])}<Icon name="arrow" size={16} /></span>
+  </a>
+  })}
+</div>

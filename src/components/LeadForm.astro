@@ -1,0 +1,84 @@
+---
+import {isLive, pick, url, type Locale} from '../lib/content'
+import {interests} from '../lib/leads'
+const {locale, slug} = Astro.props as {locale:Locale, slug:string}
+const c = (en:string, ar:string) => pick(locale,[en,ar])
+const endpoint = process.env.RY_LEAD_ENDPOINT || '/api/lead'
+const live = isLive()
+const reviewOnly = !live && process.env.RY_REVIEW_ONLY === 'true'
+if (live && !process.env.RY_LEAD_ENDPOINT) throw new Error('Set the approved lead endpoint before release.')
+---
+<div class="panel">
+  <h2>{c('Tell us what you need','أخبرنا بما تحتاجه')}</h2>
+  <p>{live ? c('Share basic contact details and a short summary. Please omit personal documents.','شارك بيانات التواصل الأساسية وملخصًا موجزًا. يُرجى عدم إرسال مستندات شخصية.') : reviewOnly ? c('Inquiry submission will open after the business inbox is configured.','سيُتاح إرسال الاستفسارات بعد إعداد البريد الإلكتروني للشركة.') : c('Preview form. Use sample details only.','نموذج تجريبي. استخدم بيانات تجريبية فقط.')}</p>
+  <form id="lead-form" method="post" action={endpoint}
+    data-live={String(live)}
+    data-review-only={String(reviewOnly)}
+    data-success={live ? c('Your inquiry was received.','تم استلام استفسارك.') : c('Sample inquiry accepted by the preview endpoint.','تم قبول الاستفسار التجريبي.')}
+    data-failure={c('We couldn’t accept your inquiry. Check your details and try again.', 'تعذّر قبول استفسارك. تحقّق من البيانات وحاول مجددًا.')}
+    data-rate={c('Please wait before trying again.','يُرجى الانتظار قبل إعادة المحاولة.')}>
+    <input type="hidden" name="locale" value={locale} />
+    <input type="hidden" name="source" value={url(locale,slug)} />
+    <input type="hidden" name="quiz" value="" />
+    <label>{c('Name','الاسم')}<input name="name" required maxlength="100" autocomplete="name" dir="auto" /></label>
+    <label>{c('Email address','البريد الإلكتروني')}<input name="email" type="email" required maxlength="254" autocomplete="email" dir="ltr" /></label>
+    <label>{c('Service interest','الخدمة المطلوبة')}
+      <select name="interest">{interests.map(({id,label}) => <option value={id} selected={id === slug}>{pick(locale,label)}</option>)}</select>
+    </label>
+    <p id="quiz-context" hidden>{c('Your quiz preferences will be included with this inquiry.','ستُرفق تفضيلات الاختبار بهذا الاستفسار.')}</p>
+    <label>{c('Business plans (optional)','خطط الأعمال (اختياري)')}<textarea name="message" rows="4" maxlength="1000" dir="auto"></textarea></label>
+    <label class="agree"><input type="checkbox" name="consent" value="yes" required /><span>{c('I agree to be contacted about this inquiry.','أوافق على التواصل معي بشأن هذا الاستفسار.')} <a href={url(locale,'privacy')}>{c('Privacy policy','سياسة الخصوصية')}</a></span></label>
+    <label hidden>Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+    <button type="submit" class="btn btn-navy" disabled={reviewOnly}>{c('Send Inquiry','أرسل الاستفسار')}</button>
+    <p class="form-status" id="lead-status" role="status" tabindex="-1"></p>
+  </form>
+</div>
+<script>
+  import {interests} from '../lib/leads'
+  import {measure} from '../lib/measure'
+  const form = document.querySelector<HTMLFormElement>('#lead-form')
+  const status = document.querySelector<HTMLParagraphElement>('#lead-status')
+  if (form && status) {
+    const query = new URLSearchParams(location.search)
+    const interest = query.get('interest')
+    if (interest && interests.some(option => option.id === interest)) {
+      const select = form.elements.namedItem('interest') as HTMLSelectElement
+      select.value = interest
+    }
+    const quiz = query.get('quiz')
+    if (quiz && /^(local|remote|unknown)\.(client|trade|other)\.(yes|no|unsure)$/.test(quiz)) {
+      const input = form.elements.namedItem('quiz') as HTMLInputElement
+      input.value = quiz
+      document.querySelector('#quiz-context')?.removeAttribute('hidden')
+    }
+    form.addEventListener('submit', async event => {
+      event.preventDefault()
+      const button = form.querySelector('button')!
+      if (button.disabled || form.dataset.reviewOnly === 'true') return
+      button.disabled = true
+      status.textContent = ''
+      try {
+        const response = await fetch(form.action, {
+          method:'POST', body:new URLSearchParams(Array.from(new FormData(form), ([key,value]) => [key,String(value)])),
+          headers:{Accept:'application/json'},
+        })
+        const result = await response.json()
+        if (response.ok && result.accepted === true && (form.dataset.live !== 'true' || result.delivered === true)) {
+          status.textContent = form.dataset.success!
+          form.reset()
+          const input = form.elements.namedItem('quiz') as HTMLInputElement
+          input.value = ''
+          document.querySelector('#quiz-context')?.setAttribute('hidden','')
+          if (result.delivered === true) measure('generate_lead')
+        } else {
+          status.textContent = (response.status === 429 ? form.dataset.rate : form.dataset.failure)!
+        }
+      } catch {
+        status.textContent = form.dataset.failure!
+      } finally {
+        button.disabled = false
+        status.focus()
+      }
+    })
+  }
+</script>

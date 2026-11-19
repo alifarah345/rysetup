@@ -1,0 +1,57 @@
+name: Hostinger staging
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ASTRO_TELEMETRY_DISABLED: '1'
+      RY_REVIEW_ONLY: 'true'
+      SITE_URL: https://staging.rysetup.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: staging-site
+          path: dist/
+          if-no-files-found: error
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    concurrency:
+      group: hostinger-staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: staging-site
+          path: dist/
+      - name: Upload staging files
+        env:
+          SFTP_HOST: ${{ vars.HOSTINGER_SFTP_HOST }}
+          SFTP_PORT: ${{ vars.HOSTINGER_SFTP_PORT }}
+          SFTP_USER: ${{ vars.HOSTINGER_SFTP_USER }}
+          STAGING_ROOT: ${{ vars.HOSTINGER_STAGING_ROOT }}
+          SFTP_KEY: ${{ secrets.HOSTINGER_STAGING_SSH_KEY }}
+          SFTP_KNOWN_HOSTS: ${{ secrets.HOSTINGER_KNOWN_HOSTS }}
+        run: bash scripts/deploy-staging.sh

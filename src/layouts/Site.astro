@@ -1,0 +1,85 @@
+---
+import '@fontsource-variable/manrope'
+import '@fontsource-variable/noto-sans-arabic'
+import '../styles/site.css'
+import Brand from '../components/Brand.astro'
+import Icon from '../components/Icon.astro'
+import {isLive, pick, url, type Locale} from '../lib/content'
+interface Props {
+  locale: Locale
+  slug?: string
+  title: string
+  description: string
+  whatsapp?: string
+}
+const {locale, slug = '', title, description, whatsapp} = Astro.props
+const ar = locale === 'ar'
+const other = ar ? 'en' : 'ar'
+const copy = (en: string, arabic: string) => pick(locale, [en, arabic])
+const nav = [
+  ['',copy('Home','الرئيسية')],
+  ['business-setup',copy('Business Setup','تأسيس الأعمال')],
+  ['pro-services',copy('PRO Services','المعاملات الحكومية')],
+  ['resources',copy('Resources','الموارد')],
+  ['about',copy('About Us','من نحن')],
+]
+const footer = [
+  ['packages',copy('Packages','الباقات')],
+  ['faq',copy('FAQs','الأسئلة الشائعة')],
+  ['contact',copy('Contact','تواصل معنا')],
+  ['privacy',copy('Privacy','الخصوصية')],
+  ['terms',copy('Terms','الشروط')],
+]
+const whatsappUrl = whatsapp && /^[1-9][0-9]{7,14}$/.test(whatsapp)
+  ? 'https://wa.me/' + whatsapp + '?text=' + encodeURIComponent(copy('Hello, I would like to discuss UAE business setup.', 'مرحبًا، أود الاستفسار عن تأسيس الأعمال في الإمارات.'))
+  : null
+---
+<!doctype html>
+<html lang={locale} dir={ar ? 'rtl' : 'ltr'}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    {!isLive() && <meta name="robots" content="noindex,nofollow" />}
+    <link rel="canonical" href={new URL(url(locale,slug), Astro.site)} />
+    <link rel="alternate" hreflang={locale} href={new URL(url(locale,slug), Astro.site)} />
+    <link rel="alternate" hreflang={other} href={new URL(url(other,slug), Astro.site)} />
+    <link rel="alternate" hreflang="x-default" href={new URL(url('en',slug), Astro.site)} />
+    <title>{title} | {copy('Rukn Al Yaqeen','ركن اليقين')}</title>
+  </head>
+  <body>
+    <a class="skip" href="#main">{copy('Skip to content','انتقل إلى المحتوى')}</a>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a href={url(locale)} class="brand-link"><Brand locale={locale} /></a>
+        <button class="menu-toggle" type="button" aria-controls="top-nav" aria-expanded="false" hidden><Icon name="menu" /> <span class="sr-only">{copy('Menu','القائمة')}</span></button>
+        <nav id="top-nav" aria-label={copy('Main navigation','القائمة الرئيسية')}>
+          {nav.map(([path,label]) => <a href={url(locale,path)} aria-current={slug === path ? 'page' : undefined}>{label}</a>)}
+        </nav>
+        <div class="header-actions">
+          <a class="lang" href={url(other,slug)} lang={other} hreflang={other}><Icon name="globe" size={17} />{ar ? 'English' : 'العربية'}</a>
+          <a class="btn btn-navy header-cta" href={url(locale,'contact')}>{copy('Free Consultation','استشارة مجانية')} <Icon name="diagonal" size={16} /></a>
+        </div>
+      </div>
+    </header>
+    <main id="main" tabindex="-1"><slot /></main>
+    <footer class="site-footer">
+      <div class="shell foot-inner">
+        <a href={url(locale)} class="brand-link"><Brand locale={locale} /></a>
+        <nav aria-label={copy('Footer navigation','روابط التذييل')}>{footer.map(([path,label]) => <a href={url(locale,path)}>{label}</a>)}</nav>
+      </div>
+    </footer>
+    {whatsappUrl && <a class="whatsapp" href={whatsappUrl} data-track="whatsapp_click"><Icon name="chat" /> WhatsApp</a>}
+  </body>
+</html>
+<script>
+  import { measure } from '../lib/measure'
+  const toggle = document.querySelector<HTMLButtonElement>('.menu-toggle')
+  if (toggle) {
+    toggle.hidden = false
+    toggle.addEventListener('click', () => {
+      toggle.setAttribute('aria-expanded', String(toggle.getAttribute('aria-expanded') !== 'true'))
+    })
+  }
+  document.querySelector('[data-track="whatsapp_click"]')?.addEventListener('click', () => measure('whatsapp_click'))
+</script>

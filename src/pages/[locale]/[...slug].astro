@@ -1,0 +1,53 @@
+---
+import Site from '../../layouts/Site.astro'
+import ServiceCards from '../../components/ServiceCards.astro'
+import FAQ from '../../components/FAQ.astro'
+import LeadForm from '../../components/LeadForm.astro'
+import Quiz from '../../components/Quiz.astro'
+import {isLive, locales, pages, pick, url} from '../../lib/content'
+import {articleRoutes, editorial} from '../../lib/cms'
+export const getStaticPaths = async () => {
+  const articles = await articleRoutes()
+  const fixed = pages.filter(entry => !isLive() || !entry.slug.startsWith('resources/'))
+  const dynamic = articles.filter(slug => !fixed.some(entry => entry.slug === slug))
+    .map(slug => ({slug, title:['',''] as const, intro:['',''] as const, service:false}))
+  return locales.flatMap(locale => [...fixed, ...dynamic].map(entry => ({
+    params:{locale,slug:entry.slug}, props:{locale,entry,articles},
+  })))
+}
+const {locale,entry,articles} = Astro.props
+const {slug} = entry
+const {pages:editorialPages,faqs,settings} = await editorial(locale)
+const page = editorialPages.find(item => item.slug === slug)
+if (isLive() && (!page?.title || !page.intro || (entry.service && !page.serviceApproved))) {
+  throw new Error('Approved localized content required for ' + url(locale,slug))
+}
+const c = (en:string, ar:string) => pick(locale,[en,ar])
+const title = page?.title || pick(locale,entry.title)
+const intro = page?.intro || pick(locale,entry.intro)
+const related = slug === 'resources' ? [...new Set([
+  ...articles,
+  ...(!isLive() ? pages.filter(item => item.slug.startsWith('resources/')).map(item => item.slug) : []),
+])].map(path => ({
+  path, title:editorialPages.find(item => item.slug === path)?.title ||
+    pick(locale,pages.find(item => item.slug === path)!.title),
+})) : []
+---
+<Site locale={locale} slug={slug} title={page?.seoTitle || title} description={page?.seoDescription || intro} whatsapp={settings?.whatsapp}>
+  <section class="inner-hero"><div class="shell">
+    <a href={url(locale)}>{c('Home','الرئيسية')}</a>
+    <h1>{title}</h1>
+    <p class="intro">{intro}</p>
+  </div></section>
+  <section class="section"><div class="shell">
+    {entry.service && !isLive() && <p class="draft">{c('Proposed service · Pending confirmation','خدمة مقترحة · بانتظار التأكيد')}</p>}
+    {page?.body && <div class="editorial-body">{page.body}</div>}
+    {slug === 'business-setup' && <ServiceCards locale={locale} editorialPages={editorialPages} />}
+    {slug === 'faq' && <FAQ locale={locale} entries={faqs} />}
+    {slug === 'contact' && settings?.email && <p><a class="text-link" href={'mailto:' + settings.email} dir="ltr">{settings.email}</a></p>}
+    {(slug === 'contact' || entry.service) && <div class:list={{'mt-8':slug === 'business-setup'}}><LeadForm locale={locale} slug={slug} /></div>}
+    {slug === 'setup-quiz' && <Quiz locale={locale} />}
+    {related.length > 0 && <div class="inner-links">{related.map(item => <a href={url(locale,item.path)}>{item.title}</a>)}</div>}
+    {!['privacy','terms','contact','setup-quiz'].includes(slug) && !entry.service && <div class="inner-links"><a href={url(locale,'contact')}>{c('Request a Consultation','اطلب استشارة')}</a></div>}
+  </div></section>
+</Site>

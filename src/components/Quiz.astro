@@ -1,0 +1,44 @@
+---
+import {pick, url, type Locale} from '../lib/content'
+const {locale} = Astro.props as {locale:Locale}
+const c = (en:string, ar:string) => pick(locale,[en,ar])
+const questions = [
+  {key:'market', title:c('Where do you plan to operate?','أين تخطط لممارسة نشاطك؟'), options:[['local',c('Mainly in the UAE local market','بشكل أساسي في السوق المحلي الإماراتي')],['remote',c('Mainly internationally or remotely','بشكل أساسي خارج الإمارات أو عن بُعد')],['unknown',c('I’m still deciding','لم أقرر بعد')]]},
+  {key:'activity', title:c('What kind of activity are you planning?','ما نوع النشاط الذي تخطط له؟'), options:[['client',c('Client or professional services','خدمات مهنية أو للعملاء')],['trade',c('Trading or retail','تجارة أو بيع بالتجزئة')],['other',c('Another activity or still exploring','نشاط آخر أو ما زلت أستكشف')]]},
+  {key:'visa', title:c('Do you expect to need visa support?','هل تتوقع الحاجة إلى دعم في التأشيرات؟'), options:[['yes',c('Yes','نعم')],['no',c('No','لا')],['unsure',c('I’m not sure','لست متأكدًا')]]},
+]
+---
+<div class="panel">
+  <noscript><p><a class="text-link" href={url(locale,'contact')}>{c('Skip to consultation','انتقل إلى الاستشارة')}</a></p></noscript>
+  <form id="setup-quiz">
+    {questions.map(question => <fieldset><legend>{question.title}</legend>{question.options.map(([value,label]) => <label><input type="radio" name={question.key} value={value} required />{label}</label>)}</fieldset>)}
+    <button type="submit" class="btn btn-navy">{c('See my recommendation','عرض التوصية')}</button>
+  </form>
+  <div id="quiz-result" hidden tabindex="-1">
+    <h2 data-result="local" hidden>{c('Explore mainland setup','استكشف التأسيس في البر الرئيسي')}</h2>
+    <h2 data-result="remote" hidden>{c('Explore free zone setup','استكشف التأسيس في منطقة حرة')}</h2>
+    <h2 data-result="unknown" hidden>{c('Compare both setup routes','قارن مساري التأسيس')}</h2>
+    <p>{c('Use this starting point to discuss eligibility and requirements for your activity.','استخدم هذه النتيجة كنقطة بداية لمناقشة الأهلية ومتطلبات نشاطك.')}</p>
+    <a class="text-link" id="quiz-contact" href={url(locale,'contact')}>{c('Share preferences with a consultation request','شارك تفضيلاتك في طلب استشارة')}</a>
+  </div>
+</div>
+<script>
+  import {measure} from '../lib/measure'
+  const quiz = document.querySelector<HTMLFormElement>('#setup-quiz')
+  const result = document.querySelector<HTMLElement>('#quiz-result')
+  const contact = document.querySelector<HTMLAnchorElement>('#quiz-contact')
+  if (quiz && result && contact) quiz.addEventListener('submit', event => {
+    event.preventDefault()
+    const answer = new FormData(quiz)
+    const market = String(answer.get('market'))
+    const route = market === 'local' ? 'business-setup/mainland' : market === 'remote' ? 'business-setup/free-zone' : 'general'
+    result.querySelectorAll<HTMLElement>('[data-result]').forEach(element => {element.hidden = element.dataset.result !== market})
+    const target = new URL(contact.href)
+    target.searchParams.set('interest',route)
+    target.searchParams.set('quiz',[market,answer.get('activity'),answer.get('visa')].join('.'))
+    contact.href = target.toString()
+    result.hidden = false
+    result.focus()
+    measure('quiz_complete')
+  })
+</script>

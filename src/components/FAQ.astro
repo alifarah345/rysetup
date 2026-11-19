@@ -1,0 +1,10 @@
+---
+import {faqs, isLive, pick, type Locale} from '../lib/content'
+import Icon from './Icon.astro'
+const {locale, entries} = Astro.props as {locale:Locale; entries:{title:string; intro:string}[]}
+const visible = entries.filter(entry => entry.title && entry.intro)
+const items = visible.length || isLive() ? visible : faqs.map(({q,a}) => ({title:pick(locale,q),intro:pick(locale,a)}))
+---
+<div class="faq-list">
+  {items.map(({title,intro}) => <details><summary>{title}<Icon name="chevron" size={18} /></summary><p>{intro}</p></details>)}
+</div>
