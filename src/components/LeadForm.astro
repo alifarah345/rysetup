@@ -3,20 +3,28 @@ import {isLive, pick, url, type Locale} from '../lib/content'
 import {interests} from '../lib/leads'
 const {locale, slug} = Astro.props as {locale:Locale, slug:string}
 const c = (en:string, ar:string) => pick(locale,[en,ar])
-const endpoint = process.env.RY_LEAD_ENDPOINT || '/api/lead'
-const live = isLive()
-const reviewOnly = !live && process.env.RY_REVIEW_ONLY === 'true'
-if (live && !process.env.RY_LEAD_ENDPOINT) throw new Error('Set the approved lead endpoint before release.')
+const configuredEndpoint = process.env.RY_LEAD_ENDPOINT
+const reviewOnly = !isLive() && process.env.RY_REVIEW_ONLY === 'true'
+const web3FormsKey = process.env.RY_WEB3FORMS_ACCESS_KEY?.trim()
+const useWeb3Forms = !reviewOnly && Boolean(web3FormsKey)
+const live = !reviewOnly && Boolean(configuredEndpoint || web3FormsKey)
+const endpoint = useWeb3Forms ? 'https://api.web3forms.com/submit' : live ? configuredEndpoint : '/api/lead'
+if (isLive() && !live) throw new Error('Set the approved lead endpoint before release.')
 ---
 <div class="panel">
   <h2>{c('Tell us what you need','أخبرنا بما تحتاجه')}</h2>
   <p>{live ? c('Share basic contact details and a short summary. Please omit personal documents.','شارك بيانات التواصل الأساسية وملخصًا موجزًا. يُرجى عدم إرسال مستندات شخصية.') : reviewOnly ? c('Inquiry submission will open after the business inbox is configured.','سيُتاح إرسال الاستفسارات بعد إعداد البريد الإلكتروني للشركة.') : c('Preview form. Use sample details only.','نموذج تجريبي. استخدم بيانات تجريبية فقط.')}</p>
   <form id="lead-form" method="post" action={endpoint}
     data-live={String(live)}
+    data-web3forms={String(useWeb3Forms)}
     data-review-only={String(reviewOnly)}
     data-success={live ? c('Your inquiry was received.','تم استلام استفسارك.') : c('Sample inquiry accepted by the preview endpoint.','تم قبول الاستفسار التجريبي.')}
     data-failure={c('We couldn’t accept your inquiry. Check your details and try again.', 'تعذّر قبول استفسارك. تحقّق من البيانات وحاول مجددًا.')}
     data-rate={c('Please wait before trying again.','يُرجى الانتظار قبل إعادة المحاولة.')}>
+    {useWeb3Forms && <>
+      <input type="hidden" name="access_key" value={web3FormsKey} />
+      <input type="hidden" name="subject" value="New Rukn Al Yaqeen website inquiry" />
+    </>}
     <input type="hidden" name="locale" value={locale} />
     <input type="hidden" name="source" value={url(locale,slug)} />
     <input type="hidden" name="quiz" value="" />
@@ -28,7 +36,7 @@ if (live && !process.env.RY_LEAD_ENDPOINT) throw new Error('Set the approved lea
     <p id="quiz-context" hidden>{c('Your quiz preferences will be included with this inquiry.','ستُرفق تفضيلات الاختبار بهذا الاستفسار.')}</p>
     <label>{c('Business plans (optional)','خطط الأعمال (اختياري)')}<textarea name="message" rows="4" maxlength="1000" dir="auto"></textarea></label>
     <label class="agree"><input type="checkbox" name="consent" value="yes" required /><span>{c('I agree to be contacted about this inquiry.','أوافق على التواصل معي بشأن هذا الاستفسار.')} <a href={url(locale,'privacy')}>{c('Privacy policy','سياسة الخصوصية')}</a></span></label>
-    <label hidden>Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+    <label hidden>Website<input name={useWeb3Forms ? 'botcheck' : 'website'} tabindex="-1" autocomplete="off" /></label>
     <button type="submit" class="btn btn-navy" disabled={reviewOnly}>{c('Send Inquiry','أرسل الاستفسار')}</button>
     <p class="form-status" id="lead-status" role="status" tabindex="-1"></p>
   </form>
@@ -58,18 +66,24 @@ if (live && !process.env.RY_LEAD_ENDPOINT) throw new Error('Set the approved lea
       button.disabled = true
       status.textContent = ''
       try {
-        const response = await fetch(form.action, {
-          method:'POST', body:new URLSearchParams(Array.from(new FormData(form), ([key,value]) => [key,String(value)])),
-          headers:{Accept:'application/json'},
-        })
+        const data = new FormData(form)
+        const hosted = form.dataset.web3forms === 'true'
+        if (hosted) {
+          data.set('replyto', String(data.get('email')))
+          if (!data.get('botcheck')) data.delete('botcheck')
+        }
+        const body = new URLSearchParams(Array.from(data, ([key,value]) => [key,String(value)]))
+        const response = await fetch(form.action, {method:'POST', body, headers:{Accept:'application/json'}})
         const result = await response.json()
-        if (response.ok && result.accepted === true && (form.dataset.live !== 'true' || result.delivered === true)) {
+        const accepted = hosted ? result.success === true :
+          result.accepted === true && (form.dataset.live !== 'true' || result.delivered === true)
+        if (response.ok && accepted) {
           status.textContent = form.dataset.success!
           form.reset()
           const input = form.elements.namedItem('quiz') as HTMLInputElement
           input.value = ''
           document.querySelector('#quiz-context')?.setAttribute('hidden','')
-          if (result.delivered === true) measure('generate_lead')
+          if (!hosted && result.delivered === true) measure('generate_lead')
         } else {
           status.textContent = (response.status === 429 ? form.dataset.rate : form.dataset.failure)!
         }
