@@ -1,0 +1,33 @@
+name: Hostinger marker test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hostinger-marker-test.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  marker:
+    runs-on: ubuntu-latest
+    concurrency: hostinger-marker-test
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+      - name: Push the one-time deployment marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker=.github/hostinger-marker-test.txt
+          if [[ -f "$marker" ]]; then
+            echo 'The one-time marker already exists.'
+            exit 0
+          fi
+          printf 'Workflow run: %s\nUTC timestamp: %s\n' "$GITHUB_RUN_ID" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > "$marker"
+          git add -- "$marker"
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m 'Trigger Hostinger rebuild from GitHub Actions'
+          git push origin HEAD:refs/heads/main
