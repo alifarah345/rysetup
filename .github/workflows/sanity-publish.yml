@@ -1,0 +1,45 @@
+name: Deploy approved Sanity content
+
+on:
+  workflow_dispatch:
+    inputs:
+      event_id:
+        description: SHA-256 ID of the approved Sanity publication event
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sanity-live-deployment
+  cancel-in-progress: false
+
+jobs:
+  marker:
+    if: github.ref == 'refs/heads/main' && github.repository == 'alifarah345/rysetup'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Allow nearby content updates to settle
+        run: sleep 20
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+      - name: Push content deployment marker
+        shell: bash
+        env:
+          EVENT_ID: ${{ inputs.event_id }}
+        run: |
+          set -euo pipefail
+          [[ "$EVENT_ID" =~ ^[0-9a-f]{64}$ ]]
+          marker=.github/sanity-deployment-events.txt
+          if [[ -f "$marker" ]] && grep -Fxq -- "$EVENT_ID" "$marker"; then
+            exit 0
+          fi
+          # Preserve a bounded history for webhook retries.
+          { if [[ -f "$marker" ]]; then tail -n 63 "$marker"; fi; printf '%s\n' "$EVENT_ID"; } > "$marker.tmp"
+          mv "$marker.tmp" "$marker"
+          git add -- "$marker"
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m 'Rebuild website for approved Sanity content'
+          git push origin HEAD:refs/heads/main
