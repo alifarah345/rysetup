@@ -25,3 +25,8 @@
 - Validate and rate-limit lead submissions on the server. Verify successful delivery before confirming receipt. Provide accessible error and retry states.
 - Keep tracking configurable and apply owner-approved consent rules. Count successful lead submissions separately from contact clicks. Keep CRM and advertising integrations inactive until approved and configured.
 - Before release, verify both locales, navigation, accessibility, SEO, mobile performance, form delivery and failure handling, and tracking behavior.
+
+## Owner's preferred instructions
+
+- For setup, troubleshooting, and handoffs, give detailed numbered steps in the order the owner should follow. Name the screen, menu, button, and field when known. State what to enter, what success looks like, and what information to share back. Clearly mark any step that requires an account decision or approval.
+- Prefer browser or dashboard steps for owner-managed setup when available. Explain any necessary technical terms in plain language and put commands in separate copyable blocks when needed.

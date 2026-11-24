@@ -1,5 +1,6 @@
 import {createElement} from 'react'
 import {defineConfig, defineField, defineType} from 'sanity'
+import {structureTool} from 'sanity/structure'
 
 const translation = defineType({
   name:'translation', title:'Localized copy', type:'object',
@@ -52,5 +53,6 @@ export default defineConfig({
   name:'rysetup', title:'Rukn Al Yaqeen',
   projectId:process.env.SANITY_STUDIO_PROJECT_ID || '',
   dataset:process.env.SANITY_STUDIO_DATASET || '',
+  plugins:[structureTool()],
   schema:{types:[translation,page,faq,settings]},
 })

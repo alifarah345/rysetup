@@ -18,7 +18,10 @@ async function dispatch(eventId) {
     body:JSON.stringify({ref:'main',inputs:{event_id:eventId}}),
     signal:AbortSignal.timeout(10_000),
   })
-  if (!response.ok) throw new Error('GitHub rejected the dispatch')
+  if (!response.ok) {
+    console.error('GitHub workflow dispatch returned HTTP %d', response.status)
+    throw new Error('GitHub rejected the dispatch')
+  }
 }
 
 createServer({requestTimeout:15_000}, createHandler({secret:SANITY_DEPLOY_SECRET,dispatch}))
