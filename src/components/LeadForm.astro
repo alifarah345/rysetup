@@ -83,7 +83,8 @@ if (isLive() && !live) throw new Error('Set the approved lead endpoint before re
           const input = form.elements.namedItem('quiz') as HTMLInputElement
           input.value = ''
           document.querySelector('#quiz-context')?.setAttribute('hidden','')
-          if (!hosted && result.delivered === true) measure('generate_lead')
+          if (hosted) measure('inquiry_accepted')
+          else if (result.delivered === true) measure('generate_lead')
         } else {
           status.textContent = (response.status === 429 ? form.dataset.rate : form.dataset.failure)!
         }

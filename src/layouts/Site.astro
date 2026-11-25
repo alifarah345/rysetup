@@ -2,6 +2,7 @@
 import '@fontsource-variable/manrope'
 import '@fontsource-variable/noto-sans-arabic'
 import '../styles/site.css'
+import Analytics from '../components/Analytics.astro'
 import Brand from '../components/Brand.astro'
 import Icon from '../components/Icon.astro'
 import {isLive, pick, url, type Locale} from '../lib/content'
@@ -69,6 +70,7 @@ const whatsappUrl = whatsapp && /^[1-9][0-9]{7,14}$/.test(whatsapp)
         <nav aria-label={copy('Footer navigation','روابط التذييل')}>{footer.map(([path,label]) => <a href={url(locale,path)}>{label}</a>)}</nav>
       </div>
     </footer>
+    <Analytics locale={locale} />
     {whatsappUrl && <a class="whatsapp" href={whatsappUrl} data-track="whatsapp_click"><Icon name="chat" /> WhatsApp</a>}
   </body>
 </html>

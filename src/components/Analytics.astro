@@ -1,0 +1,93 @@
+---
+import {pick, url, type Locale} from '../lib/content'
+
+const {locale} = Astro.props as {locale: Locale}
+const container = process.env.RY_GTM_CONTAINER_ID?.trim()
+const enabled = container && /^GTM-[A-Z0-9]+$/.test(container) && process.env.RY_REVIEW_ONLY !== 'true'
+const c = (en:string, ar:string) => pick(locale,[en,ar])
+---
+{enabled && <>
+  <section class="analytics-choice" id="analytics-choice" data-container={container} aria-labelledby="analytics-title" hidden>
+    <h2 id="analytics-title">{c('Analytics preferences','تفضيلات التحليلات')}</h2>
+    <p>{c('Allow optional analytics to help us understand how the site is used.','اسمح بالتحليلات الاختيارية لمساعدتنا على فهم كيفية استخدام الموقع.')} <a href={url(locale,'privacy')}>{c('Privacy policy','سياسة الخصوصية')}</a></p>
+    <div>
+      <button type="button" class="btn btn-navy" data-analytics="allow">{c('Allow analytics','السماح بالتحليلات')}</button>
+      <button type="button" class="btn" data-analytics="decline">{c('Decline analytics','رفض التحليلات')}</button>
+    </div>
+  </section>
+  <div class="shell analytics-settings">
+    <button type="button" id="analytics-settings" aria-controls="analytics-choice" hidden>{c('Analytics preferences','تفضيلات التحليلات')}</button>
+  </div>
+</>}
+
+<style>
+  .analytics-choice{position:fixed;z-index:5;inset-inline:16px;inset-block-end:16px;margin-inline:auto;max-width:540px;background:white;border:1px solid var(--line);border-radius:8px;padding:18px;box-shadow:0 8px 30px #10243e22}
+  .analytics-choice h2{font-size:20px;margin-block:0 5px}
+  .analytics-choice p{font-size:14px;margin-block-end:12px}
+  .analytics-choice a,.analytics-settings button{text-decoration:underline}
+  .analytics-choice button[data-analytics=decline]{border-color:var(--line)}
+  .analytics-choice div{display:flex;flex-wrap:wrap;gap:8px}
+  .analytics-settings{padding-block-end:16px;font-size:13px}
+</style>
+
+<script>
+  import {funnelEvents, type FunnelEvent} from '../lib/measure'
+  const panel = document.querySelector<HTMLElement>('#analytics-choice')
+  const settings = document.querySelector<HTMLButtonElement>('#analytics-settings')
+
+  if (panel && settings) {
+    const storageKey = 'ry-analytics-consent-v1'
+    const container = panel.dataset.container!
+    const browser = window as Window & {dataLayer?: unknown[]}
+    let decision: string | null = null
+    let started = false
+    try { decision = localStorage.getItem(storageKey) } catch { /* Storage may be disabled. */ }
+
+    function start() {
+      if (started) return
+      started = true
+      const layer = browser.dataLayer ??= []
+      function consent(..._args: unknown[]) { layer.push(arguments) }
+      consent('consent','default',{
+        analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',
+      })
+      consent('consent','update',{analytics_storage:'granted'})
+      layer.push({'gtm.start':Date.now(),event:'gtm.js'})
+      const script = document.createElement('script')
+      script.async = true
+      script.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(container)
+      document.head.append(script)
+    }
+
+    settings.hidden = false
+    panel.hidden = decision === 'allow' || decision === 'decline'
+    settings.addEventListener('click', () => {
+      panel.hidden = false
+      panel.querySelector('button')?.focus()
+    })
+    panel.addEventListener('click', event => {
+      const target = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-analytics]')
+      if (!target) return
+      const next = target.dataset.analytics!
+      decision = next
+      try { localStorage.setItem(storageKey,next) } catch { /* Respect the choice for this page. */ }
+      panel.hidden = true
+      if (next === 'allow') start()
+      if (next === 'decline' && started) {
+        const layer = browser.dataLayer!
+        function consent(..._args: unknown[]) { layer.push(arguments) }
+        consent('consent','update',{analytics_storage:'denied'})
+        location.reload()
+        return
+      }
+      settings.focus()
+    })
+    if (decision === 'allow') start()
+
+    window.addEventListener('ry:measurement', event => {
+      const name = (event as CustomEvent<{name?:FunnelEvent}>).detail?.name
+      if (decision !== 'allow' || !name || !funnelEvents.includes(name)) return
+      browser.dataLayer?.push({event:name,site_language:document.documentElement.lang === 'ar' ? 'ar' : 'en'})
+    })
+  }
+</script>

@@ -1,0 +1,11 @@
+# GA4 and Google Tag Manager setup
+
+The website can load one Tag Manager container after visitors allow optional analytics. Configure the GA4 destination inside Tag Manager. Leave advertising tags inactive until the business approves advertising measurement and its consent behavior.
+
+1. Open Google Tag Manager → **GTM-KV8Z53C2 → Workspace → Tags → New**. Choose **Google tag**, enter **G-PT56KRX6F3**, and select **All Pages**. If a tag already sends pageviews to that measurement ID, edit or reuse it so GA4 receives one pageview.
+2. In **Triggers**, create a **Custom Event** trigger for `inquiry_accepted`. Create a **Google Analytics: GA4 Event** tag for **G-PT56KRX6F3**, with event name `inquiry_accepted`, and select that trigger. Web3Forms acceptance signals that the provider accepted the form request. Inbox delivery remains a separate check. Optionally map the Data Layer Variable `site_language` to an event parameter of the same name.
+3. If needed, add separate Custom Event triggers and GA4 Event tags for `quiz_complete` and `whatsapp_click`. Apply the same analytics-consent requirement. Keep advertising tags out of this release.
+4. For validation, build a private preview with `RY_GTM_CONTAINER_ID=GTM-KV8Z53C2`. The review-only build intentionally suppresses the tag. Use Tag Manager Preview/Tag Assistant and GA4 DebugView. Verify that decline blocks Google requests, allow loads the container, one accepted test inquiry sends one event, failures send none, and declining after accepting stops future analytics. Use synthetic details.
+5. Confirm the privacy notice reflects GA4 and the actual consent choices. After approval, publish the Tag Manager container and set `RY_GTM_CONTAINER_ID` in the Hostinger build environment for rysetup.com, then deploy the matching website code. Check live GA4 Realtime and the submission flow. Mark `inquiry_accepted` as a GA4 key event only after validating it.
+
+The website supplies only the event name and language in funnel events. Do not map form inputs, email addresses, names, message text, or quiz answers into Tag Manager. Keep Google Ads, Meta Pixel, and automatic form measurement disabled for this rollout. Automatic form measurement can also be disabled under GA4 **Admin → Data streams → Enhanced measurement → Form interactions**.
